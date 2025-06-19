@@ -10,6 +10,7 @@ from hashlib import sha256
 import os
 from datetime import datetime, date, timedelta
 
+st.set_page_config(layout="wide")
 
 # Path for the Excel file
 EXCEL_FILE = "users.xlsx"
