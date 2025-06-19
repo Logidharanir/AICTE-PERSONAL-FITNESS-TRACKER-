@@ -17,7 +17,7 @@ st.set_page_config(page_title="Personal Fitness Tracker", layout="wide")
 # ============================
 # ✅ Google Sheets Setup
 # ============================
-SHEET_ID = "16j0fl9kjNyhQHWvM4P3lJsD_tD_59B97GdOcyK7AsWg"  # from your sheet URL
+SHEET_ID = "16j0fI9kjNYhQHWvM4P3lJsD_tD_59B97GdOcyK7AsWg"
 TAB_NAME = "Users"
 
 
@@ -35,7 +35,7 @@ def get_gsheet_client():
 # Load users from Google Sheet
 def load_users():
     client = get_gsheet_client()
-    sheet = client.open_by_key(SHEET_ID).worksheet("Users")
+    sheet = client.open_by_key(SHEET_ID).worksheet(TAB_NAME)
     records = sheet.get_all_records()
     return {row["Username"]: row for row in records}
 
