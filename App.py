@@ -33,32 +33,41 @@ def get_gsheet_client():
     return client
 
 # Load users from Google Sheetdef load_users():
-    client = get_gsheet_client()
-    sheet = client.open_by_key(SHEET_ID).worksheet(TAB_NAME)
-    records = sheet.get_all_records()
+def load_users():
+    try:
+        client = get_gsheet_client()
+        sheet = client.open_by_key(SHEET_ID).worksheet("Users")
+        records = sheet.get_all_records()
 
-    # ✅ Normalize data types
-    cleaned_users = {}
-    for row in records:
-        username = str(row["Username"]).strip()
-        cleaned_users[username] = {
-            "Password": str(row["Password"]).strip(),
-            "Name": str(row["Name"]).strip(),
-            "DOB": str(row["DOB"]).strip(),
-            "Security_Question": str(row["Security_Question"]).strip(),
-            "Security_Answer": str(row["Security_Answer"]).strip(),
-            "Last_Attendance": str(row.get("Last_Attendance", "")).strip(),
-        }
+        # ✅ Normalize field data types
+        cleaned_users = {}
+        for row in records:
+            username = str(row.get("Username", "")).strip()
+            if username:  # Only if valid user
+                cleaned_users[username] = {
+                    "Password": str(row.get("Password", "")).strip(),
+                    "Name": str(row.get("Name", "")).strip(),
+                    "DOB": str(row.get("DOB", "")).strip(),
+                    "Security_Question": str(row.get("Security_Question", "")).strip(),
+                    "Security_Answer": str(row.get("Security_Answer", "")).strip(),
+                    "Last_Attendance": str(row.get("Last_Attendance", "")).strip(),
+                }
 
-    return cleaned_users
+        return cleaned_users
+
+    except Exception as e:
+        st.error("⚠️ Failed to load users from Google Sheets")
+        st.exception(e)
+        return {}
+
 
 # Save users to Google Sheet
 def save_users(users_dict):
     client = get_gsheet_client()
     sheet = client.open_by_key(SHEET_ID).worksheet(TAB_NAME)
     df = pd.DataFrame.from_dict(users_dict, orient='index').reset_index()
-    df = df.astype(str)  # ✅ Convert all values to string to avoid JSON error
     df.rename(columns={'index': 'Username'}, inplace=True)
+    df = df.astype(str).fillna("")  # ✅ Ensure safe saving
     sheet.clear()
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
