@@ -35,15 +35,7 @@ def get_gsheet_client():
 # Load users from Google Sheet
 def load_users():
     client = get_gsheet_client()
-
-    # 🔍 Debug: Check what sheets this account can access
-    sheets = client.openall()
-    st.write("Sheets this account can access:")
-    for s in sheets:
-        st.write("-", s.title)
-
-    # Continue as normal
-    sheet = client.open_by_key(SHEET_ID).worksheet(TAB_NAME)
+    sheet = client.open_by_key(SHEET_ID).worksheet("Users")
     records = sheet.get_all_records()
     return {row["Username"]: row for row in records}
 
