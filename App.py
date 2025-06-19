@@ -10,7 +10,7 @@ from hashlib import sha256
 import os
 from datetime import datetime, date, timedelta
 
-st.set_page_config(layout="wide")
+st.set_page_config(page_title="Personal Fitness Tracker", layout="wide")
 
 # Path for the Excel file
 EXCEL_FILE = "users.xlsx"
@@ -747,7 +747,7 @@ else:
         filtered_data = workout_data[workout_data["Date"] == str(selected_date)]
 
         if not filtered_data.empty:
-            st.table(filtered_data)
+            st.dataframe(filtered_data, use_container_width=True)
         else:
             st.write("No workout recorded for this date.")
 
