@@ -1,5 +1,9 @@
 streamlit>=1.34
 pandas
 numpy
-openpyxl           # if you read/write Excel
-scikit-learn       # note: the package name is *scikit‑learn*, not sklearn
+openpyxl               # still needed for other Excel files, if any
+scikit-learn           # ML model
+gspread                # Google Sheets API
+oauth2client           # For Google credentials
+matplotlib
+seaborn
