@@ -32,18 +32,32 @@ def get_gsheet_client():
     client = gspread.authorize(creds)
     return client
 
-# Load users from Google Sheet
-def load_users():
+# Load users from Google Sheetdef load_users():
     client = get_gsheet_client()
     sheet = client.open_by_key(SHEET_ID).worksheet(TAB_NAME)
     records = sheet.get_all_records()
-    return {row["Username"]: row for row in records}
+
+    # ✅ Normalize data types
+    cleaned_users = {}
+    for row in records:
+        username = str(row["Username"]).strip()
+        cleaned_users[username] = {
+            "Password": str(row["Password"]).strip(),
+            "Name": str(row["Name"]).strip(),
+            "DOB": str(row["DOB"]).strip(),
+            "Security_Question": str(row["Security_Question"]).strip(),
+            "Security_Answer": str(row["Security_Answer"]).strip(),
+            "Last_Attendance": str(row.get("Last_Attendance", "")).strip(),
+        }
+
+    return cleaned_users
 
 # Save users to Google Sheet
 def save_users(users_dict):
     client = get_gsheet_client()
     sheet = client.open_by_key(SHEET_ID).worksheet(TAB_NAME)
     df = pd.DataFrame.from_dict(users_dict, orient='index').reset_index()
+    df = df.astype(str)  # ✅ Convert all values to string to avoid JSON error
     df.rename(columns={'index': 'Username'}, inplace=True)
     sheet.clear()
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
