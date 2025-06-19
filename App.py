@@ -9,92 +9,86 @@ from sklearn.ensemble import RandomForestRegressor
 from hashlib import sha256
 import os
 from datetime import datetime, date, timedelta
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 st.set_page_config(page_title="Personal Fitness Tracker", layout="wide")
 
-# Path for the Excel file
-EXCEL_FILE = "users.xlsx"
+# ============================
+# ✅ Google Sheets Setup
+# ============================
+SHEET_NAME = "FitnessTrackerDB"
+TAB_NAME = "Users"
 
+# Set up the Google Sheets client
+def get_gsheet_client():
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+    client = gspread.authorize(creds)
+    return client
+
+# Load users from Google Sheet
 def load_users():
-    try:
-        # Load the Excel file
-        df = pd.read_excel(EXCEL_FILE)
+    client = get_gsheet_client()
+    sheet = client.open(SHEET_NAME).worksheet(TAB_NAME)
+    records = sheet.get_all_records()
+    return {row["Username"]: row for row in records}
 
-        # Ensure column names are stripped of whitespace
-        df.columns = df.columns.str.strip()
-
-        # Check if "Username" column exists
-        if "Username" not in df.columns:
-            raise KeyError("The 'Username' column is missing from the Excel file!")
-
-        return df.set_index("Username").to_dict(orient="index")
-
-    except (FileNotFoundError, KeyError):
-        # If file is missing or "Username" column is missing, create a new file
-        df = pd.DataFrame(columns=[
-            "Username", "Password", "Name", "DOB", 
-            "Security_Question", "Security_Answer", "Last_Attendance"
-        ])
-        df.to_excel(EXCEL_FILE, index=False)
-        return {}
-
-# Example usage
-users = load_users()
-print(users)  # Debugging: Print loaded users
-
-
-# Function to save user data to Excel
+# Save users to Google Sheet
 def save_users(users_dict):
-    df = pd.DataFrame.from_dict(users_dict, orient="index").reset_index()
-    if len(df.columns) == 7:  # Ensure correct column count before renaming
-        df.columns = ["Username", "Password", "Name", "DOB", "Security_Question", "Security_Answer", "Last_Attendance"]
-    else:
-        print("Column mismatch! Found columns:", df.columns)  # Debugging step
+    client = get_gsheet_client()
+    sheet = client.open(SHEET_NAME).worksheet(TAB_NAME)
+    df = pd.DataFrame.from_dict(users_dict, orient='index').reset_index()
+    df.rename(columns={'index': 'Username'}, inplace=True)
+    sheet.clear()
+    sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
-    df.to_excel(EXCEL_FILE, index=False)
-
-# Function to hash passwords
+# ============================
+# ✅ Core Functions
+# ============================
 def hash_password(password):
     return sha256(password.encode()).hexdigest()
 
-# Function to check login credentials
 def check_login(username, password, users):
-    if username in users and users[username]["Password"] == hash_password(password):
-        return True
-    return False
+    return username in users and users[username]["Password"] == hash_password(password)
 
-# Function to add new users
 def add_user(username, password, name, dob, question, answer, users):
     if username not in users:
         users[username] = {
             "Password": hash_password(password),
             "Name": name,
-            "DOB": dob,
+            "DOB": str(dob),
             "Security_Question": question,
             "Security_Answer": hash_password(answer),
-            "Last_Attendance": None
+            "Last_Attendance": ""
         }
         save_users(users)
 
-# Function to reset password
 def reset_password(username, question, answer, new_password, users):
-    if username in users:
-        if users[username]["Security_Question"] == question and users[username]["Security_Answer"] == hash_password(answer):
-            users[username]["Password"] = hash_password(new_password)
-            save_users(users)
-            return True
+    if username in users and users[username]["Security_Question"] == question and users[username]["Security_Answer"] == hash_password(answer):
+        users[username]["Password"] = hash_password(new_password)
+        save_users(users)
+        return True
     return False
 
-# Function to mark attendance
 def mark_attendance(username, users):
     today = str(date.today())
     if users[username]["Last_Attendance"] != today:
         users[username]["Last_Attendance"] = today
         save_users(users)
-        return True  # Attendance marked successfully
-    return False  # Attendance already marked today
+        return True
+    return False
 
-# Initialize the app
+# ============================
+# ✅ Streamlit Interface
+# ============================
+
+st.set_page_config(page_title="Personal Fitness Tracker", layout="wide")
+
 users = load_users()
 
 if 'login' not in st.session_state:
@@ -115,8 +109,7 @@ if not st.session_state.login:
                 st.success("Logged in successfully!")
             else:
                 st.error("Invalid username or password")
-        
-        # Forgot Password Section
+
         if st.checkbox("Forgot Password"):
             st.subheader("Forgot Password")
             reset_user = st.text_input("Enter your username for password reset")
@@ -140,12 +133,7 @@ if not st.session_state.login:
     elif option == "Registration":
         username = st.text_input("Username")
         name = st.text_input("Full Name")
-        dob = st.date_input(
-            "Date of Birth",
-            value=datetime.now() - timedelta(days=30 * 365),  # Default: 30 years ago
-            min_value=datetime.now() - timedelta(days=80 * 365),  # Minimum: 80 years ago
-            max_value=datetime.now()  # Maximum: Today
-        )
+        dob = st.date_input("Date of Birth", value=datetime.now() - timedelta(days=30*365), min_value=datetime.now() - timedelta(days=80*365), max_value=datetime.now())
         password = st.text_input("Password", type="password")
         confirm_password = st.text_input("Confirm Password", type="password")
         question = st.selectbox("Select a Security Question", [
@@ -168,14 +156,14 @@ if not st.session_state.login:
                 st.success("Registration successful! Please login.")
 
 else:
-    st.set_page_config(page_title="Personal Fitness Tracker", layout="wide")  # MUST be the first Streamlit command
     st.markdown("""
     <style>
         .title {font-size:80px !important; text-align: center; font-style:bold; color:#00bfff; font-family: ink free;}
         .stButton>button { background-color: #87CEEB; color: white; }
     </style>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
     st.markdown('<b class="title">Personal Fitness Tracker</b>', unsafe_allow_html=True)
+
     username = st.session_state.current_user
 
     if st.button("Mark Attendance"):
@@ -183,8 +171,10 @@ else:
             st.success("Attendance marked for today!")
         else:
             st.warning("You have already marked attendance for today.")
+
     st.write(f"Hello, {username}! Welcome to your personal fitness tracker.")
     st.write("---")
+    
         # Categorized food list
     food_categories = {
             "Proteins & Meats": {
