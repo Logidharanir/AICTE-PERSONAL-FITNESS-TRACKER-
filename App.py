@@ -17,8 +17,9 @@ st.set_page_config(page_title="Personal Fitness Tracker", layout="wide")
 # ============================
 # ✅ Google Sheets Setup
 # ============================
-SHEET_NAME = "FitnessTrackerDB"
+SHEET_ID = "16j0fl9kjNyhQHWvM4P3lJsD_tD_59B97GdOcyK7AsWg"  # from your sheet URL
 TAB_NAME = "Users"
+
 
 # Set up the Google Sheets client
 def get_gsheet_client():
@@ -34,14 +35,22 @@ def get_gsheet_client():
 # Load users from Google Sheet
 def load_users():
     client = get_gsheet_client()
-    sheet = client.open(SHEET_NAME).worksheet(TAB_NAME)
+
+    # 🔍 Debug: Check what sheets this account can access
+    sheets = client.openall()
+    st.write("Sheets this account can access:")
+    for s in sheets:
+        st.write("-", s.title)
+
+    # Continue as normal
+    sheet = client.open_by_key(SHEET_ID).worksheet(TAB_NAME)
     records = sheet.get_all_records()
     return {row["Username"]: row for row in records}
 
 # Save users to Google Sheet
 def save_users(users_dict):
     client = get_gsheet_client()
-    sheet = client.open(SHEET_NAME).worksheet(TAB_NAME)
+    sheet = client.open_by_key(SHEET_ID).worksheet(TAB_NAME)
     df = pd.DataFrame.from_dict(users_dict, orient='index').reset_index()
     df.rename(columns={'index': 'Username'}, inplace=True)
     sheet.clear()
